@@ -5,12 +5,25 @@ const API_URL = 'https://api.deepseek.com/v1/chat/completions';
 
 export async function POST(request: Request) {
   try {
-    const { message } = await request.json();
+    const { message, history } = await request.json();
 
     if (!DEEPSEEK_API_KEY) {
       console.error('DeepSeek API key is not configured');
       throw new Error('未配置 DeepSeek API 密钥');
     }
+
+    // 构建完整的消息历史
+    const messages = [
+      {
+        role: 'system',
+        content: '你是一个专业的学习助手，帮助用户解答学习相关的问题。请用中文回答，并使用 Markdown 格式。保持回答的连贯性，注意上下文。'
+      },
+      ...(history || []),
+      {
+        role: 'user',
+        content: message
+      }
+    ];
 
     const response = await fetch(API_URL, {
       method: 'POST',
@@ -20,16 +33,7 @@ export async function POST(request: Request) {
       },
       body: JSON.stringify({
         model: 'deepseek-chat',
-        messages: [
-          {
-            role: 'system',
-            content: '你是一个专业的学习助手，帮助用户解答学习相关的问题。请用中文回答，并使用 Markdown 格式。'
-          },
-          {
-            role: 'user',
-            content: message
-          }
-        ],
+        messages: messages,
         temperature: 0.7,
         max_tokens: 2000,
         stream: true,

@@ -52,6 +52,14 @@ export default function MainLayout({
     { name: '设置', href: '/settings', icon: Cog6ToothIcon },
   ];
 
+  // 将消息历史转换为API所需的格式
+  const getMessageHistory = (messages: Message[]) => {
+    return messages.map(msg => ({
+      role: msg.isUser ? 'user' : 'assistant',
+      content: msg.content
+    }));
+  };
+
   const handleSendMessage = async () => {
     if (!inputMessage.trim() || isLoading) return;
 
@@ -82,6 +90,7 @@ export default function MainLayout({
         },
         body: JSON.stringify({
           message: inputMessage,
+          history: getMessageHistory(messages)
         }),
       });
 
