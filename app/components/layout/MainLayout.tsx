@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -25,6 +25,18 @@ interface Message {
   pending?: boolean;
 }
 
+const CHAT_HISTORY_KEY = 'chat_history';
+const MAX_HISTORY_LENGTH = 50; // 限制保存最近的50条消息
+
+// 添加窗口大小的本地存储键
+const CHAT_WINDOW_SIZE_KEY = 'chat_window_size';
+
+// 默认窗口大小
+const DEFAULT_WINDOW_SIZE = {
+  width: 600,
+  height: 700
+};
+
 export default function MainLayout({
   children,
 }: {
@@ -32,16 +44,82 @@ export default function MainLayout({
 }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: 1,
-      content: "你好！我是你的AI学习助手。有什么我可以帮你的吗？",
-      isUser: false,
-      timestamp: new Date().toLocaleTimeString(),
-    }
-  ]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [inputMessage, setInputMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [windowSize, setWindowSize] = useState(DEFAULT_WINDOW_SIZE);
+  const [isResizing, setIsResizing] = useState(false);
+  const chatWindowRef = useRef<HTMLDivElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // 从localStorage加载聊天历史
+  useEffect(() => {
+    const savedHistory = localStorage.getItem(CHAT_HISTORY_KEY);
+    if (savedHistory) {
+      try {
+        const parsedHistory = JSON.parse(savedHistory);
+        setMessages(parsedHistory);
+      } catch (error) {
+        console.error('Error loading chat history:', error);
+        // 如果加载失败，设置默认欢迎消息
+        setMessages([{
+          id: 1,
+          content: "你好！我是你的AI学习助手。有什么我可以帮你的吗？",
+          isUser: false,
+          timestamp: new Date().toLocaleTimeString(),
+        }]);
+      }
+    } else {
+      // 如果没有历史记录，设置默认欢迎消息
+      setMessages([{
+        id: 1,
+        content: "你好！我是你的AI学习助手。有什么我可以帮你的吗？",
+        isUser: false,
+        timestamp: new Date().toLocaleTimeString(),
+      }]);
+    }
+  }, []);
+
+  // 保存聊天历史到localStorage
+  useEffect(() => {
+    if (messages.length > 0) {
+      // 只保存最近的消息
+      const historyToSave = messages.slice(-MAX_HISTORY_LENGTH);
+      localStorage.setItem(CHAT_HISTORY_KEY, JSON.stringify(historyToSave));
+    }
+  }, [messages]);
+
+  // 加载保存的窗口大小
+  useEffect(() => {
+    const savedSize = localStorage.getItem(CHAT_WINDOW_SIZE_KEY);
+    if (savedSize) {
+      try {
+        const parsedSize = JSON.parse(savedSize);
+        setWindowSize(parsedSize);
+      } catch (error) {
+        console.error('Error loading window size:', error);
+      }
+    }
+  }, []);
+
+  // 保存窗口大小
+  useEffect(() => {
+    localStorage.setItem(CHAT_WINDOW_SIZE_KEY, JSON.stringify(windowSize));
+  }, [windowSize]);
+
+  // 清除聊天历史的函数
+  const clearChatHistory = () => {
+    const confirmClear = window.confirm('确定要清除所有聊天记录吗？');
+    if (confirmClear) {
+      localStorage.removeItem(CHAT_HISTORY_KEY);
+      setMessages([{
+        id: 1,
+        content: "你好！我是你的AI学习助手。有什么我可以帮你的吗？",
+        isUser: false,
+        timestamp: new Date().toLocaleTimeString(),
+      }]);
+    }
+  };
 
   const navigation = [
     { name: '首页', href: '/', icon: HomeIcon },
@@ -148,6 +226,60 @@ export default function MainLayout({
     }
   };
 
+  // 滚动到最新消息
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  // 监听消息变化，自动滚动到底部
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
+  // 处理拖拽调整大小
+  const handleMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsResizing(true);
+
+    // 记录初始位置和大小
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const startWidth = windowSize.width;
+    const startHeight = windowSize.height;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isResizing) return;
+
+      // 计算鼠标移动的距离（向左/向上为正，向右/向下为负）
+      const deltaX = e.clientX - startX;
+      const deltaY = e.clientY - startY;
+
+      // 计算新的宽度和高度（向左/向上拖动时增加大小）
+      const newWidth = Math.min(
+        Math.max(400, startWidth - deltaX),
+        window.innerWidth - 40
+      );
+      const newHeight = Math.min(
+        Math.max(500, startHeight - deltaY),
+        window.innerHeight - 40
+      );
+
+      setWindowSize({
+        width: newWidth,
+        height: newHeight
+      });
+    };
+
+    const handleMouseUp = () => {
+      setIsResizing(false);
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+  };
+
   return (
     <div className="min-h-screen bg-gray-100">
       {/* 顶部导航栏 */}
@@ -219,23 +351,52 @@ export default function MainLayout({
               <ChatBubbleOvalLeftEllipsisIcon className="h-6 w-6" />
             </button>
           ) : (
-            <div className="bg-white rounded-lg shadow-xl w-[480px] flex flex-col" style={{ height: '80vh', maxHeight: '800px' }}>
+            <div
+              ref={chatWindowRef}
+              className="bg-white rounded-lg shadow-xl flex flex-col fixed"
+              style={{
+                width: `${windowSize.width}px`,
+                height: `${windowSize.height}px`,
+                right: '16px',
+                bottom: '16px',
+                overflow: 'hidden'
+              }}
+            >
+              {/* 拖拽调整大小的句柄 - 左上角 */}
+              <div
+                className="absolute top-0 left-0 w-8 h-8 cursor-nw-resize z-[60] group"
+                onMouseDown={handleMouseDown}
+                style={{
+                  background: 'linear-gradient(135deg, #CBD5E0 50%, transparent 50%)',
+                }}
+              >
+                <div className="absolute inset-0 bg-blue-500/0 group-hover:bg-blue-500/10 transition-colors" />
+              </div>
+
               {/* 聊天窗口头部 */}
               <div className="p-6 border-b flex justify-between items-center bg-blue-600 text-white rounded-t-lg">
                 <div className="flex items-center space-x-3">
                   <ChatBubbleOvalLeftEllipsisIcon className="h-6 w-6" />
                   <h3 className="text-xl font-medium">AI学习助手</h3>
                 </div>
-                <button
-                  onClick={() => setChatOpen(false)}
-                  className="text-white hover:text-gray-200 transition-colors"
-                >
-                  <XMarkIcon className="h-6 w-6" />
-                </button>
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={clearChatHistory}
+                    className="text-white hover:text-gray-200 transition-colors text-sm px-3 py-1 rounded border border-white/30 hover:border-white/50"
+                  >
+                    清除记录
+                  </button>
+                  <button
+                    onClick={() => setChatOpen(false)}
+                    className="text-white hover:text-gray-200 transition-colors"
+                  >
+                    <XMarkIcon className="h-6 w-6" />
+                  </button>
+                </div>
               </div>
 
               {/* 聊天消息区域 */}
-              <div className="flex-1 overflow-y-auto p-6 space-y-6">
+              <div className="flex-1 overflow-y-auto p-6 space-y-6" id="chat-messages">
                 {messages.map((message) => (
                   <div
                     key={message.id}
@@ -294,6 +455,7 @@ export default function MainLayout({
                     </div>
                   </div>
                 ))}
+                <div ref={messagesEndRef} />
               </div>
 
               {/* 输入区域 */}

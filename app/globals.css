@@ -108,3 +108,54 @@ body {
     @apply my-6 border-t border-gray-300;
   }
 }
+
+@layer utilities {
+  .card {
+    @apply bg-white rounded-lg border border-gray-200 shadow overflow-hidden;
+  }
+  
+  .card-header {
+    @apply flex justify-between items-center px-6 py-4 border-b border-gray-200;
+  }
+  
+  .card-body {
+    @apply p-6;
+  }
+  
+  .card-footer {
+    @apply px-6 py-4 border-t border-gray-200;
+  }
+
+  /* 进度条动画 */
+  @keyframes progress-stripe {
+    0% {
+      background-position: 0 0;
+    }
+    100% {
+      background-position: 1rem 0;
+    }
+  }
+
+  .animate-progress-stripe {
+    animation: progress-stripe 1s linear infinite;
+  }
+}
+
+/* 暗色模式支持 */
+.dark {
+  --tw-bg-opacity: 1;
+  background-color: rgb(17 24 39 / var(--tw-bg-opacity));
+  color: rgb(229 231 235);
+  
+  .card {
+    @apply bg-gray-800 border-gray-700;
+  }
+  
+  .card-header {
+    @apply border-gray-700;
+  }
+  
+  .card-footer {
+    @apply border-gray-700;
+  }
+}

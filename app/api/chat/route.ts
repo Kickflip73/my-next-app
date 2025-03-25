@@ -32,7 +32,7 @@ export async function POST(request: Request) {
         'Authorization': `Bearer ${DEEPSEEK_API_KEY}`,
       },
       body: JSON.stringify({
-        model: 'deepseek-chat',
+        model: 'deepseek-r1',
         messages: messages,
         temperature: 0.7,
         max_tokens: 2000,

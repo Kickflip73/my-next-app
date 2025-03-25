@@ -4,7 +4,7 @@ import { ChatCompletionRequestMessage } from './types';
 const API_CONFIG = {
   key: process.env.NEXT_PUBLIC_DEEPSEEK_API_KEY || 'sk-ec93fcd5dc7043259a46efcd4ea614e1',
   baseUrl: 'https://api.deepseek.com/v1',
-  model: 'deepseek-chat',
+  model: 'deepseek-r1',
   maxRetries: 3,
   retryDelay: 1000,
 };
